@@ -7,5 +7,5 @@ export const handler = async (
 ): Promise<Program<null>> => {
   console.log(`Event: ${JSON.stringify(event, null, 2)}`);
 // @ts-ignore
-  return parse(event.program);
+  return {ast: parse(event.program)};
 };

@@ -42,7 +42,7 @@ var handler = function (event) { return __awaiter(void 0, void 0, void 0, functi
     return __generator(this, function (_a) {
         console.log("Event: ".concat(JSON.stringify(event, null, 2)));
         // @ts-ignore
-        return [2 /*return*/, (0, parser_1.parse)(event.program)];
+        return [2 /*return*/, { ast: (0, parser_1.parse)(event.program) }];
     });
 }); };
 exports.handler = handler;
