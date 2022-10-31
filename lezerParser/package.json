@@ -1,0 +1,14 @@
+{
+  "name": "lezer-parser",
+  "version": "1.0.0",
+  "description": "Lezer parser for serverless Wathon compiler",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "lezer-python": "^0.13.7"
+  }
+}
