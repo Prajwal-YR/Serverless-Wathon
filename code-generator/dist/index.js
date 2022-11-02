@@ -35,27 +35,67 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handler = void 0;
-var typecheck_1 = require("./typecheck");
+var codeGen_1 = require("./codeGen");
 var handler = function (event) { return __awaiter(void 0, void 0, void 0, function () {
-    var ProgramEnv;
+    var emptyEnv, typedAst, scratchVar, globals, commandGroups, commands;
     return __generator(this, function (_a) {
         console.log("Event: ".concat(JSON.stringify(event, null, 2)));
-        ProgramEnv = {
-            vars: new Map(),
-            funcs: new Map(),
-            classes: new Map(),
-            retType: "None",
-        };
+        emptyEnv = { vars: new Map(), funcs: new Map(), classes: new Map(event.env.classes), retType: "None" };
+        typedAst = event.typedAst;
+        scratchVar = "(local $$last i32)";
+        globals = ["(global $heap (mut i32) (i32.const 4))"];
+        typedAst.classdefs.forEach(function (c) {
+            var prefix = "".concat(c.name, "$");
+            c.methods.forEach(function (m) {
+                m.name = prefix + m.name;
+                globals = globals.concat((0, codeGen_1.codeGenFun)(m, emptyEnv));
+            });
+            var initvals = [];
+            // constructor
+            c.fields.forEach(function (f, index) {
+                var offset = (index) * 4;
+                initvals = __spreadArray(__spreadArray([], initvals, true), [
+                    " (global.get $heap)",
+                    " (i32.add  (i32.const ".concat(offset, "))"),
+                    " ".concat((0, codeGen_1.resolveLiteral)(f.init)),
+                    " i32.store"
+                ], false);
+            });
+            var init_present = emptyEnv.classes.get(c.name).methods.has('__init__');
+            globals = __spreadArray(__spreadArray(__spreadArray(__spreadArray([], globals, true), [
+                "(func $".concat(c.name, "  (result i32)"),
+                " (local $$last i32)"
+            ], false), initvals, true), [
+                " (global.get $heap)",
+                init_present ? " (local.set $$last (global.get $heap)) " : "",
+                " (global.set $heap (i32.add (global.get $heap) (i32.const ".concat(c.fields.length * 4, ")))"),
+                init_present ? " call $".concat(c.name, "$__init__\n (local.get $$last)") : "",
+                " return\n      )"
+            ], false);
+        });
+        typedAst.varinits.forEach(function (v) {
+            globals.push("(global $".concat(v.name, " (mut i32) ").concat((0, codeGen_1.resolveLiteral)(v.init), ")"));
+        });
+        typedAst.fundefs.forEach(function (f) {
+            globals = globals.concat((0, codeGen_1.codeGenFun)(f, emptyEnv));
+        });
+        commandGroups = typedAst.stmts.map(function (stmt) { return (0, codeGen_1.codeGenStmt)(stmt, emptyEnv); });
+        commands = [].concat.apply([scratchVar], commandGroups);
+        console.log("Generated: ", commands.join("\n"));
         return [2 /*return*/, {
-                // @ts-ignore
-                typedAst: (0, typecheck_1.typeCheckProgram)(event.ast, ProgramEnv),
-                env: {
-                    vars: Array.from(ProgramEnv.vars.entries()),
-                    funcs: Array.from(ProgramEnv.funcs.entries()),
-                    classes: Array.from(ProgramEnv.classes.entries()),
-                }
+                globals: globals.join("\n"),
+                wasmSource: commands.join("\n"),
             }];
     });
 }); };
