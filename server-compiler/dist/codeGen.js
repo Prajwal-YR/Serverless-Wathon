@@ -9,9 +9,63 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resolveLiteral = exports.codeGenStmt = exports.codeGenFun = void 0;
+exports.codeGenProgram = void 0;
 var ast_1 = require("./ast");
 var labelCounter = 0;
+function codeGenProgram(typedAst, emptyEnv) {
+    var scratchVar = "(local $$last i32)";
+    var globals = ["(global $heap (mut i32) (i32.const 4))"];
+    var returnType = "";
+    var returnExpr = "";
+    if (typedAst.stmts.length > 0) {
+        var lastExpr = typedAst.stmts[typedAst.stmts.length - 1];
+        if (lastExpr.tag === "expr" && !(lastExpr.expr.tag === 'builtin1' && lastExpr.expr.name === 'print')) {
+            returnType = "(result i32)";
+            returnExpr = "(local.get $$last)";
+        }
+    }
+    typedAst.classdefs.forEach(function (c) {
+        var prefix = "".concat(c.name, "$");
+        c.methods.forEach(function (m) {
+            m.name = prefix + m.name;
+            globals = globals.concat(codeGenFun(m, emptyEnv));
+        });
+        var initvals = [];
+        // constructor
+        c.fields.forEach(function (f, index) {
+            var offset = (index) * 4;
+            initvals = __spreadArray(__spreadArray([], initvals, true), [
+                " (global.get $heap)",
+                " (i32.add  (i32.const ".concat(offset, "))"),
+                " ".concat(resolveLiteral(f.init)),
+                " i32.store"
+            ], false);
+        });
+        var init_present = emptyEnv.classes.get(c.name).methods.has('__init__');
+        globals = __spreadArray(__spreadArray(__spreadArray(__spreadArray([], globals, true), [
+            "(func $".concat(c.name, "  (result i32)"),
+            " (local $$last i32)"
+        ], false), initvals, true), [
+            " (global.get $heap)",
+            init_present ? " (local.set $$last (global.get $heap)) " : "",
+            " (global.set $heap (i32.add (global.get $heap) (i32.const ".concat(c.fields.length * 4, ")))"),
+            init_present ? " call $".concat(c.name, "$__init__\n (local.get $$last)") : "",
+            " return\n      )"
+        ], false);
+    });
+    typedAst.varinits.forEach(function (v) {
+        globals.push("(global $".concat(v.name, " (mut i32) ").concat(resolveLiteral(v.init), ")"));
+    });
+    typedAst.fundefs.forEach(function (f) {
+        globals = globals.concat(codeGenFun(f, emptyEnv));
+    });
+    var commandGroups = typedAst.stmts.map(function (stmt) { return codeGenStmt(stmt, emptyEnv); });
+    var commands = [].concat.apply([scratchVar], commandGroups);
+    // console.log("Generated: ", commands.join("\n"));
+    var finalWasmCode = "(module\n    (func $print_num (import \"imports\" \"print_num\") (param i32) (result i32))\n    (func $print_bool (import \"imports\" \"print_bool\") (param i32) (result i32))\n    (func $print_none (import \"imports\" \"print_none\") (param i32) (result i32))\n    (func $abs (import \"imports\" \"abs\") (param i32) (result i32))\n    (func $max (import \"imports\" \"max\") (param i32 i32) (result i32))\n    (func $min (import \"imports\" \"min\") (param i32 i32) (result i32))\n    (func $pow (import \"imports\" \"pow\") (param i32 i32) (result i32))\n    (memory (export \"memory\") 1)\n    ".concat(globals.join("\n"), "\n    (func (export \"exported_func\") ").concat(returnType, "\n      ").concat(commands.join("\n"), "\n      ").concat(returnExpr, "\n    )\n  )");
+    return finalWasmCode;
+}
+exports.codeGenProgram = codeGenProgram;
 function codeGenFun(fundef, localEnv) {
     // Construct the environment for the function body
     var funEnv = { vars: new Map(), funcs: new Map(), classes: new Map(localEnv.classes), retType: "None" };
@@ -31,7 +85,6 @@ function codeGenFun(fundef, localEnv) {
     var stmtsBody = stmts.join("\n");
     return ["(func $".concat(fundef.name, " ").concat(params, " (result i32)\n    (local $$last i32)\n    ").concat(varDecls, "\n    ").concat(stmtsBody, "\n    (i32.const 0))")];
 }
-exports.codeGenFun = codeGenFun;
 function codeGenStmt(stmt, localEnv, useGlobal) {
     if (useGlobal === void 0) { useGlobal = true; }
     switch (stmt.tag) {
@@ -73,7 +126,6 @@ function codeGenStmt(stmt, localEnv, useGlobal) {
             return __spreadArray(__spreadArray(__spreadArray(__spreadArray(["(block $block_".concat(label), "(loop $loop_".concat(label)], condStmts, true), ["i32.const 1", "i32.xor", "br_if $block_".concat(label)], false), bodyStmts, true), ["br $loop_".concat(label), ")", ")"], false);
     }
 }
-exports.codeGenStmt = codeGenStmt;
 function resolveLiteral(literal) {
     switch (literal.tag) {
         case "num":
@@ -84,7 +136,6 @@ function resolveLiteral(literal) {
             return "(i32.const 0)";
     }
 }
-exports.resolveLiteral = resolveLiteral;
 function codeGenExpr(expr, localEnv) {
     switch (expr.tag) {
         case "builtin1":
@@ -139,7 +190,7 @@ function codeGenExpr(expr, localEnv) {
             return __spreadArray(__spreadArray([], argsStmts, true), ["(call $".concat(expr.name, ")")], false);
         case "getattr":
             var obj = codeGenExpr(expr.obj, localEnv);
-            // @ts-ignore
+            //@ts-ignore
             var classData = localEnv.classes.get(expr.obj.a.class);
             var i = Array.from(classData.fields.keys()).indexOf(expr.name);
             return __spreadArray(__spreadArray([], obj, true), ["(tee_local $$last)", "(i32.eqz)", "(if\n        (then  (i32.const -1) (i32.load) local.set $$last))", "(get_local $$last)", "(i32.add (i32.const ".concat(i * 4, "))"), "(i32.load)"], false);

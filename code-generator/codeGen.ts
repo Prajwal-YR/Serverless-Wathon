@@ -1,8 +1,87 @@
-import { BinOp, Expr, FunDef, Literal, Stmt, Type, TypeEnv, UniOp } from "./ast";
+import { BinOp, Expr, FunDef, Literal, Program, Stmt, Type, TypeEnv, UniOp } from "./ast";
 
 var labelCounter = 0;
 
-export function codeGenFun(fundef: FunDef<Type>, localEnv: TypeEnv): Array<string> {
+export function codeGenProgram(typedAst: Program<Type>, emptyEnv: TypeEnv): string {
+    const scratchVar: string = `(local $$last i32)`;
+    var globals: string[] = [`(global $heap (mut i32) (i32.const 4))`];
+    var returnType = "";
+    var returnExpr = "";
+    if (typedAst.stmts.length > 0) {
+        const lastExpr = typedAst.stmts[typedAst.stmts.length - 1]
+        if (lastExpr.tag === "expr" && !(lastExpr.expr.tag === 'builtin1' && lastExpr.expr.name === 'print')) {
+            returnType = "(result i32)";
+            returnExpr = "(local.get $$last)"
+        }
+    }
+    typedAst.classdefs.forEach(c => {
+
+        const prefix = `${c.name}$`;
+        c.methods.forEach(m => {
+            m.name = prefix + m.name;
+            globals = globals.concat(codeGenFun(m, emptyEnv));
+        });
+
+        var initvals: string[] = [];
+        // constructor
+        c.fields.forEach((f, index) => {
+            const offset = (index) * 4;
+            initvals = [
+                ...initvals,
+                ` (global.get $heap)`,
+                ` (i32.add  (i32.const ${offset}))`,
+                ` ${resolveLiteral(f.init)}`,
+                ` i32.store`];
+
+        });
+        const init_present = emptyEnv.classes.get(c.name).methods.has('__init__');
+        globals = [
+            ...globals,
+            `(func $${c.name}  (result i32)`,
+            ` (local $$last i32)`,
+            ...initvals,
+            ` (global.get $heap)`,
+            init_present ? ` (local.set $$last (global.get $heap)) ` : ``,
+            ` (global.set $heap (i32.add (global.get $heap) (i32.const ${c.fields.length * 4})))`,
+            init_present ? ` call $${c.name}$__init__\n (local.get $$last)` : ``,
+            ` return
+      )`
+        ];
+    });
+    typedAst.varinits.forEach((v) => {
+        globals.push(`(global $${v.name} (mut i32) ${resolveLiteral(v.init)})`);
+    });
+
+
+
+    typedAst.fundefs.forEach((f) => {
+        globals = globals.concat(codeGenFun(f, emptyEnv));
+    });
+
+
+    const commandGroups = typedAst.stmts.map(stmt => codeGenStmt(stmt, emptyEnv));
+    const commands = [].concat.apply([scratchVar], commandGroups);
+    // console.log("Generated: ", commands.join("\n"));
+
+    const finalWasmCode = `(module
+    (func $print_num (import "imports" "print_num") (param i32) (result i32))
+    (func $print_bool (import "imports" "print_bool") (param i32) (result i32))
+    (func $print_none (import "imports" "print_none") (param i32) (result i32))
+    (func $abs (import "imports" "abs") (param i32) (result i32))
+    (func $max (import "imports" "max") (param i32 i32) (result i32))
+    (func $min (import "imports" "min") (param i32 i32) (result i32))
+    (func $pow (import "imports" "pow") (param i32 i32) (result i32))
+    (memory (export "memory") 1)
+    ${globals.join("\n")}
+    (func (export "exported_func") ${returnType}
+      ${commands.join("\n")}
+      ${returnExpr}
+    )
+  )`;
+    return finalWasmCode;
+}
+
+function codeGenFun(fundef: FunDef<Type>, localEnv: TypeEnv): Array<string> {
     // Construct the environment for the function body
     const funEnv: TypeEnv = { vars: new Map(), funcs: new Map(), classes: new Map(localEnv.classes), retType: "None" };
     // Construct the code for params and variable declarations in the body
@@ -27,7 +106,7 @@ export function codeGenFun(fundef: FunDef<Type>, localEnv: TypeEnv): Array<strin
 
 }
 
-export function codeGenStmt(stmt: Stmt<Type>, localEnv: TypeEnv, useGlobal: boolean = true): Array<string> {
+function codeGenStmt(stmt: Stmt<Type>, localEnv: TypeEnv, useGlobal: boolean = true): Array<string> {
     switch (stmt.tag) {
         case "assign":
             var valStmts = codeGenExpr(stmt.value, localEnv);
@@ -84,7 +163,7 @@ export function codeGenStmt(stmt: Stmt<Type>, localEnv: TypeEnv, useGlobal: bool
     }
 }
 
-export function resolveLiteral(literal: Literal<Type>): string {
+function resolveLiteral(literal: Literal<Type>): string {
     switch (literal.tag) {
         case "num":
             return `(i32.const ${literal.value})`;
