@@ -1,0 +1,127 @@
+<!doctype HTML>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <script src="https://cdn.jsdelivr.net/gh/AssemblyScript/wabt.js@1.0.20/index.js"></script>
+    <script>const wabt = WabtModule;</script>
+    <script src="webstart.js"></script>
+    <style>
+        .editor {
+            float: top;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            height: 49%;
+            font-size: large;
+        }
+
+        .user-code {
+            width: 60%;
+            height: 20em;
+            resize: both;
+            overflow: scroll;
+            font-family: monospace;
+            font-size: large;
+
+        }
+
+        .interactions {
+            float: bottom;
+            width: 60%;
+            margin-left: 1em;
+            padding: 0;
+            height: 49%;
+            font-size: large;
+            text-align: justify;
+            font-family: monospace;
+        }
+
+        .repl-code {
+            height: 2em;
+            width: 30em;
+            text-align: left;
+            font-family: monospace;
+        }
+
+        .prompt {
+            vertical-align: middle;
+        }
+
+        .output pre {
+            max-width: 100%;
+            white-space: break-spaces;
+        }
+
+        .tg {
+            border-collapse: collapse;
+            border-spacing: 0;
+            font-family: monospace;
+            font-size: large;
+        }
+
+        .tg td {
+            border-color: black;
+            border-style: solid;
+            border-width: 1px;
+            font-family: monospace;
+            font-size: large;
+            overflow: hidden;
+            padding: 10px 5px;
+            word-break: normal;
+        }
+
+        .tg th {
+            border-color: black;
+            border-style: solid;
+            border-width: 1px;
+            font-family: monospace;
+            font-size: large;
+            font-weight: bold;
+            overflow: hidden;
+            padding: 10px 5px;
+            word-break: normal;
+        }
+
+        .tg .tg-0pky {
+            border-color: inherit;
+            text-align: left;
+            vertical-align: top;
+            overflow: auto;
+            font-family: monospace;
+            font-size: large;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="editor">
+        <button id="run">Run!</button><br /><br />
+        <textarea class="user-code" id="user-code"></textarea>
+    </div>
+    <br />
+    <div class="interactions">
+        <div class="output" id="output">
+        </div>
+        <br></br>
+        <table class="tg">
+            <thead>
+                <tr>
+                    <th class="tg-0pky">Server Compiler Result</th>
+                    <th class="tg-0pky">Serverless Compiler Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="tg-0pky" id="serverCompileOutput"></td>
+                    <td class="tg-0pky" id="serverlessCompileOutput"></td>
+                </tr>
+            </tbody>
+        </table>
+        <br></br>
+        <br></br>
+        <div class="interactions" id="comparison">
+        </div>
+</body>
+
+</html>
