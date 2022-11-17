@@ -1,4 +1,4 @@
-import { BinOp, Expr, FunDef, Literal, Program, Stmt, Type, TypeEnv, UniOp } from "./ast";
+import { BinOp, Expr, FunDef, Literal, Program, Stmt, Type, TypeEnv, UniOp } from "ast";
 
 var labelCounter = 0;
 

@@ -1,5 +1,5 @@
 import { APIGatewayEvent } from "aws-lambda";
-import { TypeEnv, Program } from "./ast";
+import { TypeEnv, Program } from "ast";
 import { codeGenProgram } from "./codeGen";
 
 
