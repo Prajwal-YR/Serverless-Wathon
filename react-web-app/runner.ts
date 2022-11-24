@@ -20,7 +20,7 @@ if (typeof process !== "undefined") {
   };
 }
 
-async function execWasm(wasmSource: string, config:any ){
+async function execWasm(wasmSource: string, config: any) {
   const wabtInterface = await wabt();
   const importObject = config.importObject;
   const myModule = wabtInterface.parseWat("test.wat", wasmSource);
@@ -31,11 +31,13 @@ async function execWasm(wasmSource: string, config:any ){
   return result;
 }
 
-export async function run(source: string, serverConfig: any, serverlessConfig: any): Promise<any> {
+export async function run(source: string, serverConfig: any, serverlessConfig: any, serverlessExpConfig: any): Promise<any> {
+  // Serverless
   const execInput = {
     input: JSON.stringify({ program: source }),
     stateMachineArn: "arn:aws:states:us-west-2:078212600544:stateMachine:Wathon"
   }
+  const serverlessRespStart = Date.now();
   const response = await fetch('https://l07eno817e.execute-api.us-west-2.amazonaws.com/delta/execution', {
     method: 'POST',
     body: JSON.stringify(execInput),
@@ -43,6 +45,7 @@ export async function run(source: string, serverConfig: any, serverlessConfig: a
       'Content-Type': 'application/json'
     }
   });
+  var serverlessApiCalls:number = 1;
   const serverlessResult = await response.json();
   console.log("execution output", serverlessResult);
   const detailsInput = {
@@ -58,14 +61,35 @@ export async function run(source: string, serverConfig: any, serverlessConfig: a
       }
     });
     execDetailsResult = await execDetails.json();
+    serverlessApiCalls++;
   } while (execDetailsResult.status === "RUNNING");
-  const wasmSource:string = JSON.parse(execDetailsResult.output);
+  const serverlessRespTime = Date.now()-serverlessRespStart;
+  const serverlessExecTime = (execDetailsResult.stopDate - execDetailsResult.startDate) * 1000;
+  const wasmSource: string = JSON.parse(execDetailsResult.output);
   console.log("Final Wasm code:\n" + wasmSource);
   const serverlessOutput = await execWasm(wasmSource, serverlessConfig);
-  // return result;
+  // Express Serverless 
+  const execExpInput = {
+    input: JSON.stringify({ program: source }),
+    stateMachineArn: "arn:aws:states:us-west-2:078212600544:stateMachine:Wathon_Express"
+  }
+  const serverlessExpRespStart = Date.now();
+  const responseExp = await fetch('https://l07eno817e.execute-api.us-west-2.amazonaws.com/delta/execSync', {
+    method: 'POST',
+    body: JSON.stringify(execExpInput),
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+  const serverlessExpResult = await responseExp.json();
+  const serverlessExpRespTime = Date.now()-serverlessExpRespStart;
+  const serverlessExpExecTime = (serverlessExpResult.stopDate - serverlessExpResult.startDate) * 1000;
+  const serverlessExpOutput = await execWasm(JSON.parse(serverlessExpResult.output), serverlessExpConfig);
+  // Server
   const serverInput = {
     program: source
   }
+  const serverRespStart = Date.now();
   const serverResponse = await fetch('http://ec2-52-39-168-9.us-west-2.compute.amazonaws.com:3000/', {
     method: 'POST',
     body: JSON.stringify(serverInput),
@@ -73,7 +97,23 @@ export async function run(source: string, serverConfig: any, serverlessConfig: a
       'Content-Type': 'application/json'
     }
   });
-  const serverResult = await serverResponse.text();
-  const serverOutput = await execWasm(serverResult, serverConfig);
-  return { server: serverOutput, serverless: serverlessOutput, compare: serverlessOutput === serverOutput };
+  const serverRespTime = Date.now()-serverRespStart;
+  const serverResult = await serverResponse.json();
+  const serverExecTime = (serverResult.stopDate - serverResult.startDate) * 1000;
+  const serverOutput = await execWasm(serverResult.output, serverConfig);
+  // Return values
+  return {
+    server: serverOutput,
+    serverless: serverlessOutput,
+    compareServerless: serverlessOutput === serverOutput,
+    compareServerlessExp: serverlessExpOutput === serverOutput,
+    serverlessExecTime,
+    serverExecTime,
+    serverRespTime,
+    serverlessRespTime,
+    serverlessApiCalls,
+    serverlessExpOutput,
+    serverlessExpExecTime,
+    serverlessExpRespTime
+  };
 }

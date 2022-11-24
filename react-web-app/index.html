@@ -103,23 +103,50 @@
     <div class="interactions">
         <div class="output" id="output">
         </div>
-        <br></br>
+        <br />
         <table class="tg">
             <thead>
                 <tr>
-                    <th class="tg-0pky">Server Compiler Result</th>
-                    <th class="tg-0pky">Serverless Compiler Result</th>
+                    <th class="tg-0pky">Feature</th>
+                    <th class="tg-0pky">Server Compiler</th>
+                    <th class="tg-0pky">Serverless Compiler</th>
+                    <th class="tg-0pky">Serverless Express Compiler</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
+                    <td class="tg-0pky">Output</td>
                     <td class="tg-0pky" id="serverCompileOutput"></td>
                     <td class="tg-0pky" id="serverlessCompileOutput"></td>
+                    <td class="tg-0pky" id="serverlessExpCompileOutput"></td>
+                </tr>
+                <tr>
+                    <td class="tg-0pky">Compile Time (in ms)</td>
+                    <td class="tg-0pky" id="serverCompileTime"></td>
+                    <td class="tg-0pky" id="serverlessCompileTime"></td>
+                    <td class="tg-0pky" id="serverlessExpCompileTime"></td>
+                </tr>
+                <tr>
+                    <td class="tg-0pky">Response Time (in ms)</td>
+                    <td class="tg-0pky" id="serverRespTime"></td>
+                    <td class="tg-0pky" id="serverlessRespTime"></td>
+                    <td class="tg-0pky" id="serverlessExpRespTime"></td>
+                </tr>
+                <tr>
+                    <td class="tg-0pky">API Calls</td>
+                    <td class="tg-0pky" id="serverApiCalls"></td>
+                    <td class="tg-0pky" id="serverlessApiCalls"></td>
+                    <td class="tg-0pky" id="serverlessExpApiCalls"></td>
+                </tr>
+                <tr>
+                    <td class="tg-0pky" colspan="2">Fidelity Verification</td>
+                    <td class="tg-0pky" id="serverlessFidelity"></td>
+                    <td class="tg-0pky" id="serverlessExpFidelity"></td>
                 </tr>
             </tbody>
         </table>
-        <br></br>
-        <br></br>
+        <br/>
+        <br/>
         <div class="interactions" id="comparison">
         </div>
 </body>
